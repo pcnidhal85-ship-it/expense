@@ -1,0 +1,157 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="CashTrack — Personal Cash Expense Manager. Track your daily spending, set budgets, and visualise your finances." />
+  <title>{% block title %}CashTrack{% endblock %} | CashTrack</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="app-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-brand">
+      <div class="brand-icon" aria-hidden="true">💵</div>
+      <div>
+        <div class="brand-text">CashTrack</div>
+        <div class="brand-sub">Expense Manager</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+
+      <a href="{% url 'dashboard' %}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+        <span class="nav-icon">🏠</span>
+        <span>Dashboard</span>
+      </a>
+
+      <a href="{% url 'expense_list' %}" class="nav-item {% if active_page == 'expenses' %}active{% endif %}" id="nav-expenses">
+        <span class="nav-icon">📋</span>
+        <span>Expenses</span>
+      </a>
+
+      <a href="{% url 'expense_add' %}" class="nav-item" id="nav-add">
+        <span class="nav-icon">➕</span>
+        <span>Add Expense</span>
+      </a>
+
+      <div class="nav-section-label">Finance</div>
+
+      <a href="{% url 'cash_management' %}" class="nav-item {% if active_page == 'cash' %}active{% endif %}" id="nav-cash">
+        <span class="nav-icon">💰</span>
+        <span>Cash Balance</span>
+      </a>
+
+      <a href="{% url 'budget' %}" class="nav-item {% if active_page == 'budget' %}active{% endif %}" id="nav-budget">
+        <span class="nav-icon">🎯</span>
+        <span>Budget</span>
+      </a>
+
+      <div class="nav-section-label">Analytics</div>
+
+      <a href="{% url 'reports' %}" class="nav-item {% if active_page == 'reports' %}active{% endif %}" id="nav-reports">
+        <span class="nav-icon">📊</span>
+        <span>Reports</span>
+      </a>
+
+      <div class="nav-section-label">System</div>
+
+      <a href="/admin/" class="nav-item" id="nav-admin">
+        <span class="nav-icon">⚙️</span>
+        <span>Admin</span>
+      </a>
+    </nav>
+
+    <!-- ── Live Cash Balance Widget ── -->
+    <div class="sidebar-balance">
+      <div class="sidebar-balance-label">💳 Remaining Cash</div>
+      <div class="sidebar-balance-value">₹{{ global_remaining_cash|floatformat:2|default:"0.00" }}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:3px">
+        ₹{{ global_cash_balance.balance|floatformat:2|default:"0.00" }} –
+        ₹{{ global_all_total|floatformat:2|default:"0.00" }} spent
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <span style="font-size:18px">👤</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Personal</div>
+        <div style="font-size:11px;color:var(--text-muted)">Single user mode</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ── -->
+  <div class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Toggle sidebar">
+          <span></span><span></span><span></span>
+        </button>
+        <div>
+          <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+          <div class="topbar-subtitle">{% block page_subtitle %}Welcome back!{% endblock %}</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle light/dark theme">🌙</button>
+        <a href="{% url 'expense_add' %}" class="btn btn-primary btn-sm" id="topbar-add-btn">
+          + Add Expense
+        </a>
+      </div>
+    </header>
+
+    <!-- Flash Messages -->
+    {% if messages %}
+    <div class="messages" style="padding: 16px 28px 0;">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
+        {% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+        {{ message }}
+        <button class="alert-close" aria-label="Close">×</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Page Content -->
+    <main class="page-content" id="main-content">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div><!-- /.main-content -->
+</div><!-- /.app-wrapper -->
+
+<!-- FAB: Quick add -->
+<a href="{% url 'expense_add' %}" class="fab" id="fab-add" title="Quick add expense" aria-label="Add expense">+</a>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Main JS -->
+<script src="{% static 'js/main.js' %}"></script>
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

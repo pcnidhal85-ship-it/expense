@@ -1,0 +1,176 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block page_subtitle %}Analyse your spending patterns{% endblock %}
+
+{% block content %}
+
+<!-- Summary Tiles -->
+<div class="report-grid mb-24">
+  <div class="report-tile fade-in">
+    <div class="tile-icon">☀️</div>
+    <div class="tile-label">Today</div>
+    <div class="tile-value text-danger">₹{{ daily_total }}</div>
+    <div class="tile-sub">{{ today|date:"d M Y" }}</div>
+  </div>
+  <div class="report-tile fade-in">
+    <div class="tile-icon">📆</div>
+    <div class="tile-label">This Week</div>
+    <div class="tile-value text-danger">₹{{ weekly_total }}</div>
+    <div class="tile-sub">Mon – {{ today|date:"D" }}</div>
+  </div>
+  <div class="report-tile fade-in">
+    <div class="tile-icon">🗓️</div>
+    <div class="tile-label">This Month</div>
+    <div class="tile-value text-danger">₹{{ monthly_total }}</div>
+    <div class="tile-sub">{{ today|date:"F Y" }}</div>
+  </div>
+  <div class="report-tile fade-in">
+    <div class="tile-icon">📊</div>
+    <div class="tile-label">Avg Daily (30d)</div>
+    <div class="tile-value text-accent">₹{{ avg_daily }}</div>
+    <div class="tile-sub">Last 30 days</div>
+  </div>
+  {% if highest_cat %}
+  <div class="report-tile fade-in">
+    <div class="tile-icon">🏆</div>
+    <div class="tile-label">Top Category</div>
+    <div class="tile-value" style="font-size:18px">{{ highest_cat.category__name|default:"—" }}</div>
+    <div class="tile-sub">₹{{ highest_cat.total }}</div>
+  </div>
+  {% endif %}
+  {% if day_totals %}
+  <div class="report-tile fade-in">
+    <div class="tile-icon">📅</div>
+    <div class="tile-label">Highest Day</div>
+    <div class="tile-value" style="font-size:18px">{{ day_totals.date|date:"d M" }}</div>
+    <div class="tile-sub">₹{{ day_totals.total }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Charts Section -->
+<div id="chartsSection" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px">
+
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">🍩 Category Split (This Month)</div>
+    </div>
+    <div class="chart-container" style="height:280px">
+      <canvas id="catChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">📊 Monthly Spending</div>
+    </div>
+    <div class="chart-container" style="height:280px">
+      <canvas id="monthChart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<div class="card fade-in mb-28">
+  <div class="card-header">
+    <div class="card-title">📈 Daily Spending (Last 14 Days)</div>
+  </div>
+  <div class="chart-container" style="height:220px">
+    <canvas id="dailyChart"></canvas>
+  </div>
+</div>
+
+<!-- Category Breakdown Table -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">📋 This Month — By Category</div>
+    </div>
+    {% if cat_breakdown %}
+      {% for cat in cat_breakdown %}
+      <div class="cat-list-item">
+        <span style="font-size:22px">{{ cat.category__icon|default:"📦" }}</span>
+        <div class="cat-bar-wrap">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:13px;font-weight:600">{{ cat.category__name|default:"Other" }}</span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;color:var(--text-muted)">{{ cat.count }} expense{{ cat.count|pluralize }}</span>
+              <span class="cat-amount text-danger">₹{{ cat.total }}</span>
+            </span>
+          </div>
+          {% if monthly_total %}
+          <div class="progress-wrap" style="height:5px">
+            <div class="cat-bar" style="background:{{ cat.category__color|default:'#AEB6BF' }};width:{% widthratio cat.total monthly_total 100 %}%"></div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:30px">
+        <p>No expenses this month.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">🌐 All-Time — By Category</div>
+    </div>
+    {% if cat_all %}
+      {% for cat in cat_all %}
+      <div class="cat-list-item">
+        <span style="font-size:22px">{{ cat.category__icon|default:"📦" }}</span>
+        <div class="cat-bar-wrap">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:13px;font-weight:600">{{ cat.category__name|default:"Other" }}</span>
+            <span class="cat-amount text-danger">₹{{ cat.total }}</span>
+          </div>
+          {% if cat_all.0.total %}
+          <div class="progress-wrap" style="height:5px">
+            <div class="cat-bar" style="background:{{ cat.category__color|default:'#AEB6BF' }};width:{% widthratio cat.total cat_all.0.total 100 %}%"></div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:30px">
+        <p>No expenses recorded yet.</p>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Monthly History Table -->
+{% if monthly_history %}
+<div class="card fade-in mt-24">
+  <div class="card-header">
+    <div class="card-title">📅 Monthly History</div>
+  </div>
+  <div class="table-wrap" style="border:none">
+    <table>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th class="text-right">Total Spent</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in monthly_history %}
+        <tr>
+          <td style="font-weight:600">{{ row.month|date:"F Y" }}</td>
+          <td class="text-right fw-bold text-danger">₹{{ row.total }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

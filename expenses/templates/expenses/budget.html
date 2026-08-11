@@ -1,0 +1,126 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}Budget{% endblock %}
+{% block page_title %}Budget{% endblock %}
+{% block page_subtitle %}Set and track your monthly spending limit{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1000px;margin:0 auto">
+
+  <!-- Left: Current Month Status -->
+  <div>
+    <div class="card fade-in">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🎯 {{ today|date:"F Y" }} Budget</div>
+          <div class="card-subtitle">Current month's spending status</div>
+        </div>
+      </div>
+
+      {% if current_budget %}
+
+        <!-- Ring chart -->
+        <div class="budget-ring-wrap">
+          <div class="budget-ring" id="budgetRing" data-pct="{{ budget_percent|default:0 }}">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <!-- Track -->
+              <circle cx="80" cy="80" r="70" fill="none" stroke="var(--border)" stroke-width="14"/>
+              <!-- Progress -->
+              <circle id="budgetRingCircle" cx="80" cy="80" r="70"
+                      fill="none" stroke="#58a6ff" stroke-width="14"
+                      stroke-linecap="round"
+                      style="stroke-dasharray:439.82;stroke-dashoffset:439.82;transition:stroke-dashoffset 1s ease"/>
+            </svg>
+            <div class="budget-ring-center">
+              <div class="budget-ring-pct" id="budgetRingPct">{{ budget_percent|default:0 }}%</div>
+              <div class="budget-ring-label">used</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+          <div style="text-align:center;padding:16px;background:var(--bg-primary);border-radius:var(--radius-sm)">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Budget</div>
+            <div style="font-size:20px;font-weight:800">₹{{ current_budget.amount }}</div>
+          </div>
+          <div style="text-align:center;padding:16px;background:var(--bg-primary);border-radius:var(--radius-sm)">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Spent</div>
+            <div style="font-size:20px;font-weight:800;color:var(--danger)">₹{{ month_spent }}</div>
+          </div>
+        </div>
+
+        {% if budget_remaining is not None %}
+        <div style="margin-top:16px;padding:14px;background:{% if budget_remaining >= 0 %}var(--success-bg){% else %}var(--danger-bg){% endif %};border-radius:var(--radius-sm);text-align:center">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
+            {% if budget_remaining >= 0 %}Remaining{% else %}Over Budget{% endif %}
+          </div>
+          <div style="font-size:24px;font-weight:900;color:{% if budget_remaining >= 0 %}var(--success){% else %}var(--danger){% endif %}">
+            ₹{{ budget_remaining|floatformat:2 }}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if budget_warning %}
+        <div class="alert alert-warning mt-12">
+          ⚠️ You've used {{ budget_percent }}% of your budget. Slow down!
+        </div>
+        {% endif %}
+
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">🎯</div>
+          <h3>No budget set</h3>
+          <p>Set a monthly budget to track your spending.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right: Form + History -->
+  <div>
+    <div class="card fade-in mb-24">
+      <div class="card-header">
+        <div>
+          <div class="card-title">{% if current_budget %}✏️ Update Budget{% else %}➕ Set Budget{% endif %}</div>
+          <div class="card-subtitle">Monthly spending limit</div>
+        </div>
+      </div>
+      <form method="post" id="budgetForm">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+        <div class="alert alert-error mb-16">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="form-group">
+          <label class="form-label" for="id_month">Month</label>
+          {{ form.month }}
+          {% if form.month.errors %}<div class="form-error">{{ form.month.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="id_budget_amount">Budget Amount (₹)</label>
+          {{ form.amount }}
+          {% if form.amount.errors %}<div class="form-error">{{ form.amount.errors|join:", " }}</div>{% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="save-budget-btn">💾 Save Budget</button>
+      </form>
+    </div>
+
+    <!-- Budget History -->
+    {% if all_budgets %}
+    <div class="card fade-in">
+      <div class="card-header">
+        <div class="card-title">📅 Budget History</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0">
+        {% for budget in all_budgets %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light)">
+          <span style="font-size:14px;font-weight:500">{{ budget.month|date:"F Y" }}</span>
+          <span class="fw-bold" style="color:var(--accent)">₹{{ budget.amount }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}{{ action }} Expense{% endblock %}
+{% block page_title %}{{ action }} Expense{% endblock %}
+{% block page_subtitle %}{% if action == 'Add' %}Record a new expense{% else %}Update expense details{% endif %}{% endblock %}
+
+{% block content %}
+
+<div style="max-width:700px;margin:0 auto">
+  <div class="card fade-in">
+    <div class="card-header">
+      <div>
+        <div class="card-title">{% if action == 'Add' %}➕ New Expense{% else %}✏️ Edit Expense{% endif %}</div>
+        <div class="card-subtitle">
+          {% if action == 'Add' %}Fill in the details to record a new expense{% else %}Update the fields below{% endif %}
+        </div>
+      </div>
+      <a href="{% url 'expense_list' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+
+    <form method="post" id="expenseForm" novalidate>
+      {% csrf_token %}
+
+      <!-- Non-field errors -->
+      {% if form.non_field_errors %}
+      <div class="alert alert-error mb-16">❌ {{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="form-grid">
+
+        <!-- Title -->
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label" for="id_title">Expense Title <span style="color:var(--danger)">*</span></label>
+          {{ form.title }}
+          {% if form.title.errors %}<div class="form-error">{{ form.title.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Amount with live preview -->
+        <div class="form-group">
+          <label class="form-label" for="id_amount">Amount (₹) <span style="color:var(--danger)">*</span></label>
+          {{ form.amount }}
+          <div id="amountPreview" class="amount-preview empty">Enter an amount</div>
+          {% if form.amount.errors %}<div class="form-error">{{ form.amount.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Category with quick-select chips -->
+        <div class="form-group">
+          <label class="form-label" for="id_category">Category</label>
+          {{ form.category }}
+          {% if form.category.errors %}<div class="form-error">{{ form.category.errors|join:", " }}</div>{% endif %}
+          <div class="quick-cats" id="quickCats">
+            <button type="button" class="quick-cat-btn" data-value="" data-cat-id="" id="qcat-clear">All</button>
+            {% for cat in form.category.field.queryset %}
+            <button type="button" class="quick-cat-btn" data-cat-id="{{ cat.pk }}" id="qcat-{{ cat.pk }}">
+              {{ cat.icon }} {{ cat.name }}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Date with shortcuts -->
+        <div class="form-group">
+          <label class="form-label" for="id_date">Date <span style="color:var(--danger)">*</span></label>
+          {{ form.date }}
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button type="button" class="btn btn-outline btn-sm" data-date-preset="today" data-target="id_date" id="date-today-btn">Today</button>
+            <button type="button" class="btn btn-outline btn-sm" data-date-preset="yesterday" data-target="id_date" id="date-yesterday-btn">Yesterday</button>
+          </div>
+          {% if form.date.errors %}<div class="form-error">{{ form.date.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Payment method -->
+        <div class="form-group">
+          <label class="form-label" for="id_payment_method">Payment Method</label>
+          {{ form.payment_method }}
+          {% if form.payment_method.errors %}<div class="form-error">{{ form.payment_method.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Description -->
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label" for="id_description">Description (optional)</label>
+          {{ form.description }}
+          {% if form.description.errors %}<div class="form-error">{{ form.description.errors|join:", " }}</div>{% endif %}
+        </div>
+
+      </div>
+
+      <!-- Remaining cash impact preview -->
+      {% if global_remaining_cash is not None %}
+      <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <span style="color:var(--text-muted)">Current remaining cash: <strong style="color:var(--text-primary)">₹{{ global_remaining_cash|floatformat:2 }}</strong></span>
+          <span id="newBalancePreview" style="color:var(--text-muted)">After this expense: <strong>—</strong></span>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-lg" id="submit-expense-btn">
+          {% if action == 'Add' %}➕ Save Expense{% else %}💾 Update Expense{% endif %}
+        </button>
+        <a href="{% url 'expense_list' %}" class="btn btn-outline btn-lg">Cancel</a>
+        {% if expense %}
+        <a href="{% url 'expense_delete' expense.pk %}" class="btn btn-danger btn-lg" style="margin-left:auto" id="delete-from-edit-btn">🗑 Delete</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  // ── Live amount preview ──
+  const amountInput   = document.getElementById('id_amount');
+  const amountPreview = document.getElementById('amountPreview');
+  const balancePreview = document.getElementById('newBalancePreview');
+  const currentRemaining = {{ global_remaining_cash|default:0|floatformat:2 }};
+
+  function updateAmountPreview() {
+    const val = parseFloat(amountInput.value);
+    if (!isNaN(val) && val > 0) {
+      amountPreview.textContent = '₹' + val.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      amountPreview.classList.remove('empty');
+      if (balancePreview) {
+        const newBal = currentRemaining - val;
+        const color  = newBal >= 0 ? 'var(--success)' : 'var(--danger)';
+        balancePreview.innerHTML =
+          'After this expense: <strong style="color:' + color + '">₹' +
+          newBal.toLocaleString('en-IN', { minimumFractionDigits: 2 }) + '</strong>';
+      }
+    } else {
+      amountPreview.textContent = 'Enter an amount';
+      amountPreview.classList.add('empty');
+      if (balancePreview) balancePreview.innerHTML = 'After this expense: <strong>—</strong>';
+    }
+  }
+
+  if (amountInput) {
+    amountInput.addEventListener('input', updateAmountPreview);
+    updateAmountPreview(); // run on load for edit mode
+  }
+
+  // ── Quick category chips ──
+  const catSelect = document.getElementById('id_category');
+  const chips     = document.querySelectorAll('.quick-cat-btn[data-cat-id]');
+
+  function syncChips() {
+    chips.forEach(function(btn) {
+      btn.classList.toggle('selected', btn.dataset.catId === catSelect.value);
+    });
+  }
+
+  chips.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      catSelect.value = btn.dataset.catId;
+      syncChips();
+    });
+  });
+
+  if (catSelect) {
+    catSelect.addEventListener('change', syncChips);
+    syncChips();
+  }
+})();
+</script>
+{% endblock %}

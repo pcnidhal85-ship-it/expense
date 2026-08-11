@@ -1,0 +1,72 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}{{ expense.title }}{% endblock %}
+{% block page_title %}Expense Detail{% endblock %}
+{% block page_subtitle %}{{ expense.title }}{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;margin:0 auto">
+
+  <div class="page-header">
+    <div>
+      <a href="{% url 'expense_list' %}" class="btn btn-outline btn-sm mb-12">← Back to Expenses</a>
+      <h1 style="font-size:24px;font-weight:800">{{ expense.title }}</h1>
+    </div>
+    <div style="display:flex;gap:10px;align-self:flex-end">
+      <a href="{% url 'expense_edit' expense.pk %}" class="btn btn-primary btn-sm" id="edit-detail-btn">✏️ Edit</a>
+      <a href="{% url 'expense_delete' expense.pk %}" class="btn btn-danger btn-sm" id="delete-detail-btn">🗑 Delete</a>
+    </div>
+  </div>
+
+  <div class="card fade-in">
+    <!-- Amount hero -->
+    <div style="text-align:center;padding:24px 0 32px;border-bottom:1px solid var(--border);margin-bottom:28px">
+      <div style="font-size:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Amount</div>
+      <div style="font-size:52px;font-weight:900;color:var(--danger);letter-spacing:-2px">₹{{ expense.amount }}</div>
+      {% if expense.category %}
+      <div class="mt-12">
+        <span class="cat-chip" style="font-size:14px;padding:6px 14px">
+          <span class="cat-dot" style="background:{{ expense.category.color }};width:12px;height:12px"></span>
+          {{ expense.category.icon }} {{ expense.category.name }}
+        </span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-field">
+        <label>Date</label>
+        <div class="value">📅 {{ expense.date|date:"l, F j, Y" }}</div>
+      </div>
+      <div class="detail-field">
+        <label>Payment Method</label>
+        <div class="value">{{ expense.get_payment_method_display }}</div>
+      </div>
+      <div class="detail-field">
+        <label>Recorded On</label>
+        <div class="value" style="font-size:14px">{{ expense.created_at|date:"d M Y, H:i" }}</div>
+      </div>
+      <div class="detail-field">
+        <label>Last Updated</label>
+        <div class="value" style="font-size:14px">{{ expense.updated_at|date:"d M Y, H:i" }}</div>
+      </div>
+    </div>
+
+    {% if expense.description %}
+    <div class="mt-24">
+      <label class="form-label" style="margin-bottom:8px">Notes</label>
+      <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-size:14px;line-height:1.7;color:var(--text-secondary)">
+        {{ expense.description }}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="form-actions mt-24">
+      <a href="{% url 'expense_edit' expense.pk %}" class="btn btn-primary">✏️ Edit Expense</a>
+      <a href="{% url 'expense_list' %}" class="btn btn-outline">← All Expenses</a>
+      <a href="{% url 'expense_delete' expense.pk %}" class="btn btn-danger" style="margin-left:auto">🗑 Delete</a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

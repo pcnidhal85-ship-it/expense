@@ -1,0 +1,77 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}Cash Balance{% endblock %}
+{% block page_title %}Cash Balance{% endblock %}
+{% block page_subtitle %}Manage your available cash{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;margin:0 auto">
+
+  <!-- Summary Cards -->
+  <div class="stats-grid mb-24">
+    <div class="stat-card blue">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">Cash in Hand</div>
+      <div class="stat-value">₹{{ cash_balance.balance }}</div>
+      <div class="stat-sub">Starting cash balance</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon">📉</div>
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value">₹{{ total_spent }}</div>
+      <div class="stat-sub">All recorded expenses</div>
+    </div>
+    <div class="stat-card {% if remaining >= 0 %}green{% else %}red{% endif %}">
+      <div class="stat-icon">{% if remaining >= 0 %}✅{% else %}❌{% endif %}</div>
+      <div class="stat-label">Remaining</div>
+      <div class="stat-value">₹{{ remaining }}</div>
+      <div class="stat-sub">Cash - Total Spent</div>
+    </div>
+  </div>
+
+  <!-- Update Form -->
+  <div class="card fade-in">
+    <div class="card-header">
+      <div>
+        <div class="card-title">💳 Update Cash Balance</div>
+        <div class="card-subtitle">Set your current starting cash amount</div>
+      </div>
+    </div>
+
+    <form method="post" id="cashForm">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-error mb-16">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="form-group">
+        <label class="form-label" for="id_balance">Cash Balance (₹) <span style="color:var(--danger)">*</span></label>
+        {{ form.balance }}
+        {% if form.balance.errors %}
+        <div class="form-error">{{ form.balance.errors|join:", " }}</div>
+        {% endif %}
+        <div class="form-hint">Enter the total cash you currently have available. Expenses will be subtracted from this.</div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg btn-block" id="save-cash-btn">💾 Save Balance</button>
+    </form>
+  </div>
+
+  <!-- Info Card -->
+  <div class="card mt-24 fade-in" style="border-color:var(--info);background:var(--info-bg)">
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <span style="font-size:24px">ℹ️</span>
+      <div>
+        <div style="font-weight:600;margin-bottom:6px">How Cash Balance Works</div>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.7">
+          Set your starting or current cash amount here. CashTrack will automatically
+          subtract all your recorded expenses from this balance so you always know
+          how much cash you have left.
+        </p>
+        <p style="font-size:13px;color:var(--text-secondary);margin-top:8px">
+          Last updated: {{ cash_balance.updated_at|date:"d M Y, H:i" }}
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

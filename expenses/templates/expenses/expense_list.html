@@ -1,0 +1,139 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}Expenses{% endblock %}
+{% block page_title %}Expenses{% endblock %}
+{% block page_subtitle %}Browse, filter and manage your spending{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-text">
+    <h1>Expense History</h1>
+    <p>All your recorded expenses in one place</p>
+  </div>
+  <a href="{% url 'expense_add' %}" class="btn btn-primary" id="add-expense-btn">
+    + Add Expense
+  </a>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <form method="get" id="filterForm">
+    <div class="filter-grid">
+      <div>
+        <label class="form-label">Search</label>
+        {{ form.search }}
+      </div>
+      <div>
+        <label class="form-label">Category</label>
+        {{ form.category }}
+      </div>
+      <div>
+        <label class="form-label">Payment</label>
+        {{ form.payment_method }}
+      </div>
+      <div>
+        <label class="form-label">From Date</label>
+        {{ form.date_from }}
+      </div>
+      <div>
+        <label class="form-label">To Date</label>
+        {{ form.date_to }}
+      </div>
+      <div>
+        <label class="form-label">Sort By</label>
+        {{ form.sort }}
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <button type="submit" class="btn btn-primary" id="filter-submit-btn">Filter</button>
+        <a href="{% url 'expense_list' %}" class="btn btn-outline" id="filter-reset-btn">Reset</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Results Summary -->
+<div class="flex-center gap-12 mb-16" style="flex-wrap:wrap">
+  <span class="text-muted" style="font-size:14px">
+    {% if expenses %}
+      Showing <strong style="color:var(--text-primary)">{{ expenses|length }}</strong> expense{{ expenses|length|pluralize }}
+    {% else %}
+      No expenses found
+    {% endif %}
+  </span>
+  {% if total_filtered %}
+  <span class="badge badge-info">Total: ₹{{ total_filtered }}</span>
+  {% endif %}
+</div>
+
+<!-- Table -->
+{% if expenses %}
+<div class="table-wrap fade-in">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <th>Category</th>
+        <th>Date</th>
+        <th>Payment</th>
+        <th class="text-right">Amount</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for expense in expenses %}
+      <tr>
+        <td style="color:var(--text-muted);font-size:12px">{{ forloop.counter }}</td>
+        <td>
+          <div style="font-weight:600">{{ expense.title }}</div>
+          {% if expense.description %}
+          <div style="font-size:12px;color:var(--text-muted);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            {{ expense.description }}
+          </div>
+          {% endif %}
+        </td>
+        <td>
+          {% if expense.category %}
+          <span class="cat-chip">
+            <span class="cat-dot" style="background:{{ expense.category.color }}"></span>
+            {{ expense.category.icon }} {{ expense.category.name }}
+          </span>
+          {% else %}
+          <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--text-muted);font-size:13px;white-space:nowrap">{{ expense.date|date:"d M Y" }}</td>
+        <td>
+          <span class="badge badge-muted">{{ expense.get_payment_method_display }}</span>
+        </td>
+        <td class="text-right fw-bold" style="color:var(--danger);font-size:15px">₹{{ expense.amount }}</td>
+        <td>
+          <div class="table-actions">
+            <a href="{% url 'expense_detail' expense.pk %}" class="btn btn-ghost btn-sm" title="View" id="view-{{ expense.pk }}">👁</a>
+            <a href="{% url 'expense_edit' expense.pk %}" class="btn btn-ghost btn-sm" title="Edit" id="edit-{{ expense.pk }}">✏️</a>
+            <a href="{% url 'expense_delete' expense.pk %}" class="btn btn-ghost btn-sm" title="Delete" id="delete-{{ expense.pk }}" style="color:var(--danger)">🗑</a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="background:var(--bg-secondary)">
+        <td colspan="5" style="padding:14px 16px;font-weight:600;color:var(--text-muted)">Total (filtered)</td>
+        <td class="text-right fw-bold" style="font-size:16px;color:var(--danger);padding:14px 16px">₹{{ total_filtered }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% else %}
+<div class="empty-state fade-in">
+  <div class="empty-state-icon">🔍</div>
+  <h3>No expenses found</h3>
+  <p>Try adjusting your filters, or add a new expense.</p>
+  <a href="{% url 'expense_add' %}" class="btn btn-primary mt-12">+ Add Expense</a>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,307 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}{{ today|date:"l, F j, Y" }}{% endblock %}
+
+{% block content %}
+
+<!-- ── Stats Row 1: Cash + Spending ── -->
+<div class="stats-grid">
+
+  <!-- Remaining Cash (THE KEY CARD — balance minus all expenses) -->
+  <div class="stat-card {% if remaining_cash >= 0 %}green{% else %}red{% endif %}">
+    <div class="stat-icon">{% if remaining_cash >= 0 %}💵{% else %}⚠️{% endif %}</div>
+    <div class="stat-label">Remaining Cash</div>
+    <div class="stat-value" data-counter="{{ remaining_cash }}" data-prefix="₹">₹{{ remaining_cash|floatformat:2 }}</div>
+    <div class="stat-sub">
+      ₹{{ cash_balance.balance }} starting &nbsp;–&nbsp; ₹{{ all_total }} spent
+    </div>
+  </div>
+
+  <div class="stat-card blue">
+    <div class="stat-icon">📅</div>
+    <div class="stat-label">Today's Expenses</div>
+    <div class="stat-value" data-counter="{{ today_total }}" data-prefix="₹">₹{{ today_total|floatformat:2 }}</div>
+    <div class="stat-sub">{{ today_count }} transaction{{ today_count|pluralize }} today</div>
+  </div>
+
+  <div class="stat-card orange">
+    <div class="stat-icon">📆</div>
+    <div class="stat-label">This Week</div>
+    <div class="stat-value" data-counter="{{ week_total }}" data-prefix="₹">₹{{ week_total|floatformat:2 }}</div>
+    <div class="stat-sub">Current week</div>
+  </div>
+
+  <div class="stat-card red">
+    <div class="stat-icon">🗓️</div>
+    <div class="stat-label">This Month</div>
+    <div class="stat-value" data-counter="{{ month_total }}" data-prefix="₹">₹{{ month_total|floatformat:2 }}</div>
+    <div class="stat-sub">
+      {% if trend_pct is not None %}
+        {% if trend_pct > 0 %}
+          <span style="color:var(--danger)">▲ {{ trend_pct }}% vs last month</span>
+        {% elif trend_pct < 0 %}
+          <span style="color:var(--success)">▼ {{ trend_pct|cut:"-" }}% vs last month</span>
+        {% else %}
+          Same as last month
+        {% endif %}
+      {% else %}
+        {{ today|date:"F Y" }}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stat-card purple">
+    <div class="stat-icon">📊</div>
+    <div class="stat-label">Total Expenses</div>
+    <div class="stat-value" data-counter="{{ all_total }}" data-prefix="₹">₹{{ all_total|floatformat:2 }}</div>
+    <div class="stat-sub">{{ total_count }} transaction{{ total_count|pluralize }} recorded</div>
+  </div>
+
+</div>
+
+<!-- ── Info Bar: Days left + Projection + Top Category ── -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+
+  <!-- Days left in month -->
+  <div class="card card-sm fade-in" style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:28px">⏳</div>
+    <div>
+      <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Days Left</div>
+      <div style="font-size:20px;font-weight:800">{{ days_left }} <span style="font-size:13px;color:var(--text-muted)">/ {{ days_in_month }}</span></div>
+      <div style="font-size:11px;color:var(--text-muted)">in {{ today|date:"F" }}</div>
+    </div>
+  </div>
+
+  <!-- Projected month spend -->
+  {% if projected_month %}
+  <div class="card card-sm fade-in" style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:28px">🔮</div>
+    <div>
+      <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Projected Month</div>
+      <div style="font-size:20px;font-weight:800;color:var(--warning)">₹{{ projected_month }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">at current pace</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Top category -->
+  {% if top_category %}
+  <div class="card card-sm fade-in" style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:28px">🏆</div>
+    <div>
+      <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Top Category</div>
+      <div style="font-size:18px;font-weight:800">{{ top_category.category__icon }} {{ top_category.category__name }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">₹{{ top_category.total }} all time</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Last expense -->
+  {% if last_expense %}
+  <div class="card card-sm fade-in" style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:28px">🕐</div>
+    <div style="min-width:0">
+      <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Last Expense</div>
+      <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ last_expense.title }}</div>
+      <div style="font-size:11px;color:var(--danger)">₹{{ last_expense.amount }} · {{ last_expense.date|date:"d M" }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ── Budget Banner ── -->
+{% if current_budget %}
+<div class="card mb-24 fade-in" style="{% if budget_percent >= 100 %}border-color:var(--danger){% elif budget_percent >= 80 %}border-color:var(--warning){% endif %}">
+  <div class="card-header">
+    <div>
+      <div class="card-title">🎯 Monthly Budget — {{ today|date:"F Y" }}</div>
+      <div class="card-subtitle">Budget: ₹{{ current_budget.amount }} &nbsp;·&nbsp; Spent: ₹{{ month_total|floatformat:2 }}</div>
+    </div>
+    <a href="{% url 'budget' %}" class="btn btn-outline btn-sm">Manage</a>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar {% if budget_percent >= 100 %}danger{% elif budget_percent >= 80 %}warning{% endif %}"
+         style="width: {{ budget_percent|default:0 }}%"></div>
+  </div>
+  <div class="flex-center gap-16 mt-12" style="flex-wrap:wrap">
+    <span class="text-muted" style="font-size:13px">{{ budget_percent|default:0 }}% used</span>
+    {% if budget_remaining is not None %}
+      {% if budget_remaining >= 0 %}
+        <span class="badge badge-success">₹{{ budget_remaining|floatformat:2 }} remaining</span>
+      {% else %}
+        <span class="badge badge-danger">₹{{ budget_remaining|slice:"1:"|floatformat:2 }} over budget</span>
+      {% endif %}
+    {% endif %}
+    {% if budget_warning and budget_percent < 100 %}<span class="badge badge-warning">⚠️ Approaching limit</span>{% endif %}
+    {% if budget_percent >= 100 %}<span class="badge badge-danger">🚨 Budget exceeded!</span>{% endif %}
+  </div>
+</div>
+{% else %}
+<div class="card mb-24 fade-in" style="border-style:dashed;text-align:center;padding:20px">
+  <span style="font-size:14px;color:var(--text-muted)">No monthly budget set. &nbsp;</span>
+  <a href="{% url 'budget' %}" class="btn btn-outline btn-sm">Set Budget →</a>
+</div>
+{% endif %}
+
+<!-- ── Main Grid ── -->
+<div class="dash-grid">
+
+  <!-- Recent Expenses -->
+  <div class="card fade-in">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🕐 Recent Expenses</div>
+        <div class="card-subtitle">Latest 8 transactions</div>
+      </div>
+      <a href="{% url 'expense_list' %}" class="btn btn-outline btn-sm">View All</a>
+    </div>
+
+    {% if recent_expenses %}
+    <div class="table-wrap" style="border:none;border-radius:0">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Date</th>
+            <th class="text-right">Amount</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for expense in recent_expenses %}
+          <tr>
+            <td>
+              <a href="{% url 'expense_detail' expense.pk %}" style="font-weight:600;color:var(--text-primary)">
+                {{ expense.title }}
+              </a>
+              <div style="font-size:11px;color:var(--text-muted)">{{ expense.get_payment_method_display }}</div>
+            </td>
+            <td>
+              {% if expense.category %}
+              <span class="cat-chip">
+                <span class="cat-dot" style="background:{{ expense.category.color }}"></span>
+                {{ expense.category.icon }} {{ expense.category.name }}
+              </span>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--text-muted);font-size:13px;white-space:nowrap">{{ expense.date|date:"d M" }}</td>
+            <td class="text-right fw-bold text-danger" style="white-space:nowrap">₹{{ expense.amount }}</td>
+            <td>
+              <div style="display:flex;gap:4px">
+                <a href="{% url 'expense_edit' expense.pk %}" class="btn btn-ghost btn-sm" title="Edit" style="padding:4px 6px">✏️</a>
+                <a href="{% url 'expense_delete' expense.pk %}" class="btn btn-ghost btn-sm" title="Delete" style="padding:4px 6px;color:var(--danger)">🗑</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">🧾</div>
+      <h3>No expenses yet</h3>
+      <p>Start by adding your first expense!</p>
+      <a href="{% url 'expense_add' %}" class="btn btn-primary mt-12">+ Add Expense</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right Column -->
+  <div>
+
+    <!-- Cash Summary (FIXED) -->
+    <div class="card mb-24 fade-in">
+      <div class="card-header">
+        <div class="card-title">💳 Cash Summary</div>
+        <a href="{% url 'cash_management' %}" class="btn btn-ghost btn-sm">Edit</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="text-muted" style="font-size:13px">Starting Cash</span>
+          <span class="fw-semibold">₹{{ cash_balance.balance|floatformat:2 }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="text-muted" style="font-size:13px">Total Spent</span>
+          <span class="fw-semibold text-danger">–₹{{ all_total|floatformat:2 }}</span>
+        </div>
+        <div class="divider" style="margin:4px 0"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="fw-semibold" style="font-size:15px">Remaining</span>
+          <span class="fw-bold" style="font-size:22px;color:{% if remaining_cash >= 0 %}var(--success){% else %}var(--danger){% endif %}">
+            ₹{{ remaining_cash|floatformat:2 }}
+          </span>
+        </div>
+        {% if cash_balance.balance > 0 %}
+        <div class="progress-wrap">
+          <div class="progress-bar {% if remaining_cash < 0 %}danger{% elif remaining_cash < cash_balance.balance|divisibleby:5 %}warning{% endif %}"
+               style="width:{% if remaining_cash > 0 %}{% widthratio remaining_cash cash_balance.balance 100 %}{% else %}0{% endif %}%;
+                      background:{% if remaining_cash >= 0 %}linear-gradient(90deg,var(--success),#4ECDC4){% else %}var(--danger){% endif %}">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);text-align:right">
+          {% if cash_balance.balance > 0 %}
+            {% widthratio remaining_cash cash_balance.balance 100 %}% remaining
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Category Breakdown (current month) -->
+    {% if cat_data %}
+    <div class="card fade-in">
+      <div class="card-header">
+        <div class="card-title">📊 This Month</div>
+        <a href="{% url 'reports' %}" class="btn btn-ghost btn-sm">Full →</a>
+      </div>
+      {% for cat in cat_data %}
+      <div class="cat-list-item">
+        <span style="font-size:20px">{{ cat.category__icon|default:"📦" }}</span>
+        <div class="cat-bar-wrap">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:13px;font-weight:600">{{ cat.category__name|default:"Other" }}</span>
+            <span class="cat-amount text-danger">₹{{ cat.total }}</span>
+          </div>
+          {% if month_total %}
+          <div class="progress-wrap" style="height:4px">
+            <div class="cat-bar" style="background:{{ cat.category__color|default:'#AEB6BF' }};
+              width:{% widthratio cat.total month_total 100 %}%"></div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- Charts Section -->
+<div id="chartsSection" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px">
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">🍩 Category Split (This Month)</div>
+    </div>
+    <div class="chart-container" style="height:260px">
+      <canvas id="catChart"></canvas>
+    </div>
+  </div>
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">📈 Daily Spending (Last 14 Days)</div>
+    </div>
+    <div class="chart-container" style="height:260px">
+      <canvas id="dailyChart"></canvas>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

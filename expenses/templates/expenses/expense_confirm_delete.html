@@ -1,0 +1,50 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}Delete Expense{% endblock %}
+{% block page_title %}Delete Expense{% endblock %}
+{% block page_subtitle %}This action cannot be undone{% endblock %}
+
+{% block content %}
+<div class="confirm-card">
+  <div class="card fade-in">
+    <div class="confirm-icon">⚠️</div>
+
+    <div style="text-align:center;margin-bottom:20px">
+      <h2 style="font-size:22px;font-weight:800;color:var(--danger)">Delete Expense?</h2>
+      <p style="color:var(--text-muted);margin-top:8px;font-size:14px">
+        This will permanently remove the expense from your records.
+      </p>
+    </div>
+
+    <div class="confirm-detail">
+      <dl>
+        <dt>Title</dt>
+        <dd>{{ expense.title }}</dd>
+
+        <dt>Amount</dt>
+        <dd style="color:var(--danger)">₹{{ expense.amount }}</dd>
+
+        <dt>Date</dt>
+        <dd>{{ expense.date|date:"d F Y" }}</dd>
+
+        {% if expense.category %}
+        <dt>Category</dt>
+        <dd>{{ expense.category.icon }} {{ expense.category.name }}</dd>
+        {% endif %}
+      </dl>
+    </div>
+
+    <form method="post" id="deleteConfirmForm">
+      {% csrf_token %}
+      <div class="form-actions" style="justify-content:center;gap:16px">
+        <button type="submit" class="btn btn-danger btn-lg" id="confirm-delete-btn">
+          🗑 Yes, Delete It
+        </button>
+        <a href="{% url 'expense_detail' expense.pk %}" class="btn btn-outline btn-lg" id="cancel-delete-btn">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
