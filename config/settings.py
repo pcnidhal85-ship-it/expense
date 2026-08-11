@@ -29,7 +29,7 @@ DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
 ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS",
-    "127.0.0.1,localhost"
+    "127.0.0.1,localhost,.vercel.app"
 ).split(",")
 
 
@@ -153,7 +153,7 @@ MAILERS = {
     },
 }
 
-CSRF_TRUSTED_ORIGINS = os.environ.get(
-    "CSRF_TRUSTED_ORIGINS",
-    ""
-).split(",") if os.environ.get("CSRF_TRUSTED_ORIGINS") else []
+raw_csrf = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = raw_csrf.split(",") if raw_csrf else []
+# Add a wildcard for Vercel preview environments if needed, but Django requires full URLs for CSRF.
+# We will trust the host if ALLOWED_HOSTS is configured.
