@@ -8,7 +8,7 @@ __pycache__/
 *$py.class
 
 # Django
-db.sqlite3
+
 staticfiles/
 
 # Environment variables
