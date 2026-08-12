@@ -1,0 +1,130 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up | CashTrack</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.1" />
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: var(--bg-primary);
+      padding: 16px;
+    }
+    .signup-container {
+      width: 100%;
+      max-width: 400px;
+    }
+    .brand-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .brand-logo {
+      font-size: 38px;
+      margin-bottom: 8px;
+    }
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.5px;
+    }
+    .brand-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .auth-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow-lg);
+    }
+    .auth-footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .auth-footer a {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .auth-footer a:hover {
+      text-decoration: underline;
+    }
+    .auth-card .form-group ul {
+      margin: 6px 0 0;
+      padding-left: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .auth-card .form-group li {
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="signup-container">
+  <div class="brand-header">
+    <div class="brand-logo" aria-hidden="true">💵</div>
+    <h1 class="brand-title">CashTrack</h1>
+    <div class="brand-desc">Personal Cash Expense Manager</div>
+  </div>
+
+  <div class="auth-card fade-in">
+    <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 18px; color: var(--text-primary)">Create an account</h2>
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-error mb-16" style="padding: 10px 12px; font-size: 13px" role="alert">
+      {% for error in form.non_field_errors %}
+      ❌ {{ error }}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      
+      {% for field in form %}
+      <div class="form-group mb-16">
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        <input type="{% if 'password' in field.name %}password{% else %}text{% endif %}" 
+               name="{{ field.name }}" 
+               id="{{ field.id_for_label }}" 
+               class="form-control" 
+               placeholder="Enter {{ field.label|lower }}"
+               required>
+        {% if field.help_text %}
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4">
+          {{ field.help_text|safe }}
+        </div>
+        {% endif %}
+        {% if field.errors %}
+        <div class="form-error" style="margin-top: 4px">{{ field.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+
+      <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center" id="signup-submit-btn">✨ Sign Up</button>
+    </form>
+  </div>
+
+  <div class="auth-footer">
+    Already have an account? <a href="{% url 'login' %}">Log in</a>
+  </div>
+</div>
+
+</body>
+</html>

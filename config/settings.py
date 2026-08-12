@@ -164,3 +164,8 @@ raw_csrf = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
 CSRF_TRUSTED_ORIGINS = raw_csrf.split(",") if raw_csrf else []
 # Add a wildcard for Vercel preview environments if needed, but Django requires full URLs for CSRF.
 # We will trust the host if ALLOWED_HOSTS is configured.
+
+# Authentication Redirects
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
