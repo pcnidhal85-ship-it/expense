@@ -6,6 +6,17 @@ from .models import Expense, Budget, CashBalance, Category
 
 
 class ExpenseForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user and not user.is_anonymous:
+            from django.db.models import Q
+            self.fields['category'].queryset = Category.objects.filter(
+                Q(user=user) | Q(user__isnull=True)
+            )
+        else:
+            self.fields['category'].queryset = Category.objects.filter(user__isnull=True)
+
     class Meta:
         model = Expense
         fields = ['title', 'amount', 'category', 'date', 'payment_method', 'description']
@@ -57,6 +68,10 @@ class ExpenseForm(forms.ModelForm):
 
 
 class BudgetForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
     class Meta:
         model = Budget
         fields = ['month', 'amount']
@@ -88,6 +103,17 @@ class BudgetForm(forms.ModelForm):
             raise ValidationError('Budget amount must be greater than zero.')
         return amount
 
+    def clean(self):
+        cleaned_data = super().clean()
+        month = cleaned_data.get('month')
+        if month and self.user:
+            qs = Budget.objects.filter(user=self.user, month=month)
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise ValidationError(f"A budget for {month.strftime('%B %Y')} already exists.")
+        return cleaned_data
+
 
 class CashBalanceForm(forms.ModelForm):
     class Meta:
@@ -111,6 +137,17 @@ class CashBalanceForm(forms.ModelForm):
 
 
 class ExpenseFilterForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user and not user.is_anonymous:
+            from django.db.models import Q
+            self.fields['category'].queryset = Category.objects.filter(
+                Q(user=user) | Q(user__isnull=True)
+            )
+        else:
+            self.fields['category'].queryset = Category.objects.filter(user__isnull=True)
+
     search = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={

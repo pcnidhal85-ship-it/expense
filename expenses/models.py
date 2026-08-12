@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from decimal import Decimal
 import datetime
@@ -31,7 +32,8 @@ class Category(models.Model):
         ('#F0A500', 'Orange'),
     ]
 
-    name = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='categories')
+    name = models.CharField(max_length=100)
     icon = models.CharField(max_length=10, default='📦')
     color = models.CharField(max_length=7, default='#AEB6BF')
     is_default = models.BooleanField(default=False)
@@ -40,6 +42,7 @@ class Category(models.Model):
     class Meta:
         verbose_name_plural = 'categories'
         ordering = ['name']
+        unique_together = ('user', 'name')
 
     def __str__(self):
         return f"{self.icon} {self.name}"
@@ -54,6 +57,7 @@ class Expense(models.Model):
         ('other', 'Other'),
     ]
 
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='expenses')
     title = models.CharField(max_length=200)
     amount = models.DecimalField(
         max_digits=12,
@@ -85,8 +89,9 @@ class Expense(models.Model):
 
 
 class Budget(models.Model):
-    """Monthly budget. One record per month."""
-    month = models.DateField(unique=True)  # stored as first day of the month
+    """Monthly budget. One record per month per user."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='budgets')
+    month = models.DateField()  # stored as first day of the month
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -97,13 +102,15 @@ class Budget(models.Model):
 
     class Meta:
         ordering = ['-month']
+        unique_together = ('user', 'month')
 
     def __str__(self):
         return f"Budget for {self.month.strftime('%B %Y')}: ₹{self.amount}"
 
 
 class CashBalance(models.Model):
-    """Single-row table to track current cash balance."""
+    """Single-row pattern per user to track current cash balance."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name='cash_balance')
     balance = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -117,14 +124,14 @@ class CashBalance(models.Model):
         verbose_name_plural = 'Cash Balance'
 
     def __str__(self):
-        return f"Cash Balance: ₹{self.balance}"
-
-    def save(self, *args, **kwargs):
-        # enforce single-row pattern
-        self.pk = 1
-        super().save(*args, **kwargs)
+        username = self.user.username if self.user else "System"
+        return f"{username}'s Cash Balance: ₹{self.balance}"
 
     @classmethod
-    def get_balance(cls):
-        obj, _ = cls.objects.get_or_create(pk=1, defaults={'balance': Decimal('0.00')})
+    def get_balance(cls, user):
+        if not user or user.is_anonymous:
+            # Fallback for anonymous or unassigned data
+            obj, _ = cls.objects.get_or_create(user=None, defaults={'balance': Decimal('0.00')})
+            return obj
+        obj, _ = cls.objects.get_or_create(user=user, defaults={'balance': Decimal('0.00')})
         return obj

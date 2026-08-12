@@ -16,7 +16,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <!-- Main CSS -->
-  <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.1" />
 
   {% block extra_head %}{% endblock %}
 </head>
@@ -94,8 +94,12 @@
     <div class="sidebar-footer">
       <span style="font-size:18px">👤</span>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Personal</div>
-        <div style="font-size:11px;color:var(--text-muted)">Single user mode</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);word-break:break-all">{{ user.username|default:"Guest" }}</div>
+        {% if user.is_authenticated %}
+        <div style="font-size:11px"><a href="{% url 'logout' %}" style="color:var(--danger)">Logout</a></div>
+        {% else %}
+        <div style="font-size:11px"><a href="{% url 'login' %}" style="color:var(--success)">Login</a></div>
+        {% endif %}
       </div>
     </div>
   </aside>
