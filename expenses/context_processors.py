@@ -6,7 +6,7 @@ from decimal import Decimal
 def cash_balance_context(request):
     """Make remaining cash available globally in all templates."""
     try:
-        cash = CashBalance.get_balance()
+        cash = CashBalance.get_balance(request.user)
         all_total = Expense.objects.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
         remaining = cash.balance - all_total
         return {

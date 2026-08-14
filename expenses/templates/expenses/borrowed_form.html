@@ -1,0 +1,87 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}{% if 'Add' in title %}Record new money borrowed from someone{% else %}Update borrowed money details{% endif %}{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;margin:0 auto">
+  <div class="card fade-in">
+    <div class="card-header">
+      <div>
+        <div class="card-title">💵 {{ title }}</div>
+        <div class="card-subtitle">
+          {% if 'Add' in title %}Fill in the details to record the borrowing{% else %}Update the fields below{% endif %}
+        </div>
+      </div>
+      <a href="{% url 'borrowed_list' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+
+    <form method="post" id="borrowedForm" novalidate>
+      {% csrf_token %}
+
+      <!-- Non-field errors -->
+      {% if form.non_field_errors %}
+      <div class="alert alert-error mb-16">❌ {{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+
+        <!-- Person Name -->
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label" for="id_person_name">Person Name <span style="color:var(--danger)">*</span></label>
+          {{ form.person_name }}
+          {% if form.person_name.errors %}<div class="form-error" style="color:var(--danger);font-size:12px;margin-top:4px">{{ form.person_name.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Amount -->
+        <div class="form-group">
+          <label class="form-label" for="id_amount">Amount (₹) <span style="color:var(--danger)">*</span></label>
+          {{ form.amount }}
+          {% if form.amount.errors %}<div class="form-error" style="color:var(--danger);font-size:12px;margin-top:4px">{{ form.amount.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Purpose -->
+        <div class="form-group">
+          <label class="form-label" for="id_purpose">Purpose <span style="color:var(--danger)">*</span></label>
+          {{ form.purpose }}
+          {% if form.purpose.errors %}<div class="form-error" style="color:var(--danger);font-size:12px;margin-top:4px">{{ form.purpose.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Date Received -->
+        <div class="form-group">
+          <label class="form-label" for="id_date_received">Date Received <span style="color:var(--danger)">*</span></label>
+          {{ form.date_received }}
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button type="button" class="btn btn-outline btn-sm" data-date-preset="today" data-target="id_date_received" id="date-today-btn">Today</button>
+            <button type="button" class="btn btn-outline btn-sm" data-date-preset="yesterday" data-target="id_date_received" id="date-yesterday-btn">Yesterday</button>
+          </div>
+          {% if form.date_received.errors %}<div class="form-error" style="color:var(--danger);font-size:12px;margin-top:4px">{{ form.date_received.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Expected Return Date -->
+        <div class="form-group">
+          <label class="form-label" for="id_expected_return_date">Expected Return Date <span style="color:var(--danger)">*</span></label>
+          {{ form.expected_return_date }}
+          {% if form.expected_return_date.errors %}<div class="form-error" style="color:var(--danger);font-size:12px;margin-top:4px">{{ form.expected_return_date.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label" for="id_notes">Notes (optional)</label>
+          {{ form.notes }}
+          {% if form.notes.errors %}<div class="form-error" style="color:var(--danger);font-size:12px;margin-top:4px">{{ form.notes.errors|join:", " }}</div>{% endif %}
+        </div>
+
+      </div>
+
+      <div class="form-actions" style="display:flex;justify-content:flex-end;gap:12px;border-top:1px solid var(--border);padding-top:20px">
+        <a href="{% url 'borrowed_list' %}" class="btn btn-outline btn-lg">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">
+          {% if 'Add' in title %}➕ Save Borrowed Record{% else %}💾 Update Details{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

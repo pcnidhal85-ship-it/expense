@@ -1,0 +1,164 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}{{ person_name }} - Borrowing History{% endblock %}
+{% block page_title %}{{ person_name }}{% endblock %}
+{% block page_subtitle %}Complete borrowing and repayment history{% endblock %}
+
+{% block extra_head %}
+<style>
+  .history-grid {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .history-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .timeline-badge {
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-16">
+  <a href="{% url 'borrowed_list' %}" class="btn btn-outline btn-sm">← Back to Money Borrowed</a>
+</div>
+
+<!-- Summary cards at the top -->
+<div class="stats-grid mb-24">
+  <div class="stat-card blue">
+    <div class="stat-icon">📥</div>
+    <div class="stat-label">Total Borrowed</div>
+    <div class="stat-value" data-counter="{{ total_borrowed }}" data-prefix="₹">₹{{ total_borrowed|floatformat:2 }}</div>
+    <div class="stat-sub">From {{ person_name }}</div>
+  </div>
+
+  <div class="stat-card green">
+    <div class="stat-icon">📤</div>
+    <div class="stat-label">Total Repaid</div>
+    <div class="stat-value" data-counter="{{ total_repaid }}" data-prefix="₹">₹{{ total_repaid|floatformat:2 }}</div>
+    <div class="stat-sub">To {{ person_name }}</div>
+  </div>
+
+  <div class="stat-card {% if remaining > 0 %}red{% else %}green{% endif %}">
+    <div class="stat-icon">💸</div>
+    <div class="stat-label">Remaining Amount</div>
+    <div class="stat-value" data-counter="{{ remaining }}" data-prefix="₹">₹{{ remaining|floatformat:2 }}</div>
+    <div class="stat-sub">Outstanding balance</div>
+  </div>
+</div>
+
+<div class="history-grid">
+
+  <!-- Loans list (Transactions) -->
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">📝 Loans Received (Transactions)</div>
+    </div>
+    
+    <div class="table-wrap" style="border:none">
+      <table>
+        <thead>
+          <tr>
+            <th>Amount</th>
+            <th>Received Date</th>
+            <th>Purpose / Notes</th>
+            <th>Due Date</th>
+            <th>Remaining</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for loan in loans %}
+          <tr>
+            <td class="fw-bold text-primary">₹{{ loan.amount }}</td>
+            <td style="font-size:13px;color:var(--text-muted)">{{ loan.date_received|date:"d M Y" }}</td>
+            <td>
+              <div style="font-weight:600">{{ loan.purpose }}</div>
+              {% if loan.notes %}
+              <div style="font-size:11px;color:var(--text-muted)">{{ loan.notes }}</div>
+              {% endif %}
+            </td>
+            <td style="font-size:13px;{% if loan.calculated_status == 'Overdue' %}color:var(--danger);font-weight:700{% else %}color:var(--text-muted){% endif %}">
+              {{ loan.expected_return_date|date:"d M Y" }}
+            </td>
+            <td style="font-size:13px;font-weight:600">₹{{ loan.remaining_amount }}</td>
+            <td>
+              {% if loan.calculated_status == 'Paid' %}
+                <span class="timeline-badge" style="background:rgba(63, 185, 80, 0.15);color:#3fb950;border:1px solid rgba(63,185,80,.3)">Paid</span>
+              {% elif loan.calculated_status == 'Overdue' %}
+                <span class="timeline-badge" style="background:rgba(248, 81, 73, 0.15);color:#f85149;border:1px solid rgba(248,81,73,.3)">Overdue</span>
+              {% elif loan.calculated_status == 'Partially Paid' %}
+                <span class="timeline-badge" style="background:rgba(88, 166, 255, 0.15);color:#58a6ff;border:1px solid rgba(88,166,255,.3)">Partially Paid</span>
+              {% else %}
+                <span class="timeline-badge" style="background:rgba(240, 165, 0, 0.15);color:#f0a500;border:1px solid rgba(240,165,0,.3)">Pending</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Repayments list -->
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">💸 Payments Made</div>
+    </div>
+    
+    {% if repayments %}
+    <div class="table-wrap" style="border:none">
+      <table>
+        <thead>
+          <tr>
+            <th>Amount Paid</th>
+            <th>Date Paid</th>
+            <th>Notes</th>
+            <th class="text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for repayment in repayments %}
+          <tr>
+            <td class="fw-bold text-success">₹{{ repayment.amount_paid }}</td>
+            <td style="font-size:13px;color:var(--text-muted)">{{ repayment.payment_date|date:"d M Y" }}</td>
+            <td style="font-size:12px">
+              {% if repayment.notes %}
+                {{ repayment.notes }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+              {% if repayment.expense %}
+                <div style="font-size:10px;color:var(--success);margin-top:2px">📊 Recorded as Expense</div>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <form method="post" action="{% url 'repayment_delete' repayment.pk %}" onsubmit="return confirm('Are you sure you want to delete this repayment? This will also delete any associated expense record.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);padding:4px 6px">🗑</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:40px;text-align:center">
+      <span style="font-size:32px;display:block;margin-bottom:8px">🤝</span>
+      <p class="text-muted" style="font-size:13px">No payments have been recorded for {{ person_name }} yet.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

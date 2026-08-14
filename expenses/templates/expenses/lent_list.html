@@ -1,0 +1,564 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}Money Lent{% endblock %}
+{% block page_title %}Money Lent{% endblock %}
+{% block page_subtitle %}Track what you've lent to others{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* Local CSS additions for Money Lent Dashboard */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  
+  .badge-pending {
+    background-color: rgba(240, 165, 0, 0.15);
+    color: #f0a500;
+    border: 1px solid rgba(240, 165, 0, 0.3);
+  }
+  
+  .badge-partially {
+    background-color: rgba(88, 166, 255, 0.15);
+    color: #58a6ff;
+    border: 1px solid rgba(88, 166, 255, 0.3);
+  }
+  
+  .badge-paid {
+    background-color: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+    border: 1px solid rgba(63, 185, 80, 0.3);
+  }
+  
+  .badge-overdue {
+    background-color: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+    border: 1px solid rgba(248, 81, 73, 0.3);
+  }
+
+  .alert-card-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .alert-loan {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-radius: var(--radius);
+    font-weight: 500;
+    font-size: 14px;
+  }
+  
+  .alert-loan.danger {
+    background: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.25);
+    color: #f85149;
+  }
+  
+  .alert-loan.warning {
+    background: rgba(240, 165, 0, 0.1);
+    border: 1px solid rgba(240, 165, 0, 0.25);
+    color: #f0a500;
+  }
+
+  /* Modal styling */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 500px;
+    padding: 24px;
+    box-shadow: var(--shadow-lg);
+    transform: scale(0.95);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .modal-overlay.active .modal-box {
+    transform: scale(1);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 12px;
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 24px;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .modal-close:hover {
+    color: var(--text-primary);
+  }
+
+  .table-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .btn-pay {
+    background-color: var(--success);
+    color: #ffffff;
+  }
+
+  .btn-pay:hover {
+    background-color: #35a045;
+    color: #ffffff;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Warnings / Alerts Section ── -->
+{% if overdue_loans or approaching_loans %}
+<div class="alert-card-container fade-in">
+  {% for loan in overdue_loans %}
+  <div class="alert-loan danger">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span>🔴</span>
+      <span><strong>₹{{ loan.remaining_amount|floatformat:2 }}</strong> from <a href="{% url 'lent_person_detail' loan.person_name %}" style="color:inherit;text-decoration:underline">{{ loan.person_name }}</a> is <strong>overdue</strong>. (Due {{ loan.expected_return_date|date:"d M Y" }})</span>
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="openRepayModal({{ loan.pk }}, '{{ loan.person_name|escapejs }}', '{{ loan.remaining_amount|escapejs }}')">Receive</button>
+  </div>
+  {% endfor %}
+
+  {% for loan in approaching_loans %}
+  <div class="alert-loan warning">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span>⚠️</span>
+      <span><strong>₹{{ loan.remaining_amount|floatformat:2 }}</strong> from <a href="{% url 'lent_person_detail' loan.person_name %}" style="color:inherit;text-decoration:underline">{{ loan.person_name }}</a> is due <strong>{% if loan.expected_return_date == today %}today{% else %}in {{ loan.days_left }} days{% endif %}</strong>.</span>
+    </div>
+    <button class="btn btn-warning btn-sm" style="color:var(--bg-primary)" onclick="openRepayModal({{ loan.pk }}, '{{ loan.person_name|escapejs }}', '{{ loan.remaining_amount|escapejs }}')">Receive</button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── Summary Statistics ── -->
+<div class="stats-grid mb-24">
+  <div class="stat-card blue">
+    <div class="stat-icon">💸</div>
+    <div class="stat-label">Total Lent</div>
+    <div class="stat-value" data-counter="{{ total_lent }}" data-prefix="₹">₹{{ total_lent|floatformat:2 }}</div>
+    <div class="stat-sub">Lifetime cash lent out</div>
+  </div>
+
+  <div class="stat-card green">
+    <div class="stat-icon">📥</div>
+    <div class="stat-label">Total Received</div>
+    <div class="stat-value" data-counter="{{ total_repaid }}" data-prefix="₹">₹{{ total_repaid|floatformat:2 }}</div>
+    <div class="stat-sub">Sum of all repayments received</div>
+  </div>
+
+  <div class="stat-card {% if remaining > 0 %}orange{% else %}green{% endif %}">
+    <div class="stat-icon">⚖️</div>
+    <div class="stat-label">Remaining Receivable</div>
+    <div class="stat-value" data-counter="{{ remaining }}" data-prefix="₹">₹{{ remaining|floatformat:2 }}</div>
+    <div class="stat-sub">Amount others owe you</div>
+  </div>
+
+  <div class="stat-card purple">
+    <div class="stat-icon">👥</div>
+    <div class="stat-label">Active Lendings</div>
+    <div class="stat-value" data-counter="{{ active_loans }}">1</div>
+    <div class="stat-sub">Loans not fully recovered</div>
+  </div>
+</div>
+
+<!-- ── Charts Section ── -->
+<div class="charts-grid">
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">🍩 Receipt Progress</div>
+    </div>
+    <div class="chart-container" style="height:250px;position:relative">
+      <canvas id="repayDoughnut"></canvas>
+    </div>
+  </div>
+
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">📊 Lent vs Received (Monthly)</div>
+    </div>
+    <div class="chart-container" style="height:250px;position:relative">
+      <canvas id="repayMonthlyBar"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ── Search & Filter Controls ── -->
+<div class="card fade-in mb-24">
+  <form method="get" style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px">
+      <!-- Search Input -->
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="font-size:11px">Search Person</label>
+        <input type="text" name="search" class="form-control" placeholder="e.g. Rahul" value="{{ search_query }}">
+      </div>
+
+      <!-- Status dropdown -->
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="font-size:11px">Filter Status</label>
+        <select name="status" class="form-control">
+          <option value="">All Statuses</option>
+          <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>🟠 Pending</option>
+          <option value="partially_paid" {% if status_filter == 'partially_paid' %}selected{% endif %}>🔵 Partially Paid</option>
+          <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>🟢 Paid</option>
+          <option value="overdue" {% if status_filter == 'overdue' %}selected{% endif %}>🔴 Overdue</option>
+        </select>
+      </div>
+
+      <!-- Date Lent range -->
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="font-size:11px">Date Lent From</label>
+        <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="font-size:11px">Date Lent To</label>
+        <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-top:1px solid var(--border-light);padding-top:12px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" name="overdue" value="true" {% if overdue_only == 'true' or overdue_only == 'on' %}checked{% endif %} class="form-check-input" style="width:14px;height:14px">
+          <span style="color:var(--danger);font-weight:600">🔴 Show Overdue Only</span>
+        </label>
+        
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+          <span class="text-muted">Sort by:</span>
+          <select name="sort" class="form-control" style="padding:4px 8px;font-size:12px;height:auto;width:auto">
+            <option value="-date_lent" {% if sort_by == '-date_lent' %}selected{% endif %}>Date Lent (Newest)</option>
+            <option value="date_lent" {% if sort_by == 'date_lent' %}selected{% endif %}>Date Lent (Oldest)</option>
+            <option value="-amount" {% if sort_by == '-amount' %}selected{% endif %}>Amount (Highest)</option>
+            <option value="amount" {% if sort_by == 'amount' %}selected{% endif %}>Amount (Lowest)</option>
+            <option value="expected_return_date" {% if sort_by == 'expected_return_date' %}selected{% endif %}>Due Date (Earliest)</option>
+            <option value="-expected_return_date" {% if sort_by == '-expected_return_date' %}selected{% endif %}>Due Date (Latest)</option>
+          </select>
+        </label>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <a href="{% url 'lent_list' %}" class="btn btn-outline btn-sm">Clear Filters</a>
+        <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- ── Lent Money List Table ── -->
+<div class="card fade-in">
+  <div class="card-header">
+    <div>
+      <div class="card-title">📋 Lending Log</div>
+      <div class="card-subtitle">Showing all matching lending records</div>
+    </div>
+    <a href="{% url 'lent_add' %}" class="btn btn-primary btn-sm">+ Add Lending Record</a>
+  </div>
+
+  {% if loans %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Person</th>
+          <th class="text-right">Amount</th>
+          <th>Lent Date</th>
+          <th>Purpose</th>
+          <th>Expected Return</th>
+          <th class="text-right">Recovered</th>
+          <th class="text-right">Outstanding</th>
+          <th>Status</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for loan in loans %}
+        <tr>
+          <td>
+            <a href="{% url 'lent_person_detail' loan.person_name %}" style="font-weight:700;color:var(--accent)">
+              {{ loan.person_name }}
+            </a>
+          </td>
+          <td class="text-right fw-bold" style="color:var(--text-primary)">₹{{ loan.amount|floatformat:2 }}</td>
+          <td style="color:var(--text-muted);font-size:13px">{{ loan.date_lent|date:"d M Y" }}</td>
+          <td>
+            <div style="font-weight:500">{{ loan.purpose }}</div>
+            {% if loan.notes %}
+            <div style="font-size:11px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ loan.notes }}">{{ loan.notes }}</div>
+            {% endif %}
+            {% if loan.expense %}
+            <div style="font-size:10px;color:var(--danger);margin-top:2px">📊 Recorded as Expense</div>
+            {% endif %}
+          </td>
+          <td style="font-size:13px;font-weight:600;{% if loan.calculated_status == 'Overdue' %}color:var(--danger){% else %}color:var(--text-muted){% endif %}">
+            {{ loan.expected_return_date|date:"d M Y" }}
+          </td>
+          <td class="text-right text-success" style="font-size:13px;font-weight:600">₹{{ loan.total_repaid|floatformat:2 }}</td>
+          <td class="text-right" style="font-size:13px;font-weight:600;{% if loan.remaining_amount > 0 %}color:var(--text-primary){% else %}color:var(--text-muted){% endif %}">
+            ₹{{ loan.remaining_amount|floatformat:2 }}
+          </td>
+          <td>
+            {% if loan.calculated_status == 'Paid' %}
+              <span class="badge badge-paid">🟢 Paid</span>
+            {% elif loan.calculated_status == 'Overdue' %}
+              <span class="badge badge-overdue">🔴 Overdue</span>
+            {% elif loan.calculated_status == 'Partially Paid' %}
+              <span class="badge badge-partially">🔵 Partially Paid</span>
+            {% else %}
+              <span class="badge badge-pending">🟠 Pending</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <div class="table-actions" style="justify-content:center">
+              {% if loan.remaining_amount > 0 %}
+              <button class="btn btn-sm btn-pay" style="padding:4px 8px;font-size:11px;font-weight:600" onclick="openRepayModal({{ loan.pk }}, '{{ loan.person_name|escapejs }}', '{{ loan.remaining_amount|escapejs }}')">📥 Recv</button>
+              {% endif %}
+              <a href="{% url 'lent_edit' loan.pk %}" class="btn btn-ghost btn-sm" title="Edit" style="padding:4px 6px">✏️</a>
+              <a href="{% url 'lent_delete' loan.pk %}" class="btn btn-ghost btn-sm" title="Delete" style="padding:4px 6px;color:var(--danger)">🗑</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:50px 20px;text-align:center">
+    <span style="font-size:48px;display:block;margin-bottom:12px">💸</span>
+    <h3 style="color:var(--text-primary);margin-bottom:6px">No Lending Records</h3>
+    <p class="text-muted" style="font-size:14px;margin-bottom:20px">Keep track of money you've lent out to friends, family, or others.</p>
+    <a href="{% url 'lent_add' %}" class="btn btn-primary">+ Add Your First Record</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Receive Payment Modal ── -->
+<div class="modal-overlay" id="repayModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">📥 Record Payment Received</div>
+      <button class="modal-close" onclick="closeRepayModal()">&times;</button>
+    </div>
+    <form id="repayForm" method="post" action="">
+      {% csrf_token %}
+      
+      <div style="background:var(--bg-secondary);padding:10px 14px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;border-left:4px solid var(--success)">
+        <span>Debtor: <strong id="repayPersonName">Rahul</strong></span>
+        <span style="float:right">Remaining: <strong id="repayRemainingLimit">₹5,000.00</strong></span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="id_amount_received">Amount Received (₹) <span style="color:var(--danger)">*</span></label>
+        {{ repayment_form.amount_received }}
+        <div class="form-hint">Must be greater than zero and cannot exceed outstanding balance.</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="id_payment_date">Payment Date <span style="color:var(--danger)">*</span></label>
+        {{ repayment_form.payment_date }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="id_repayment_notes">Notes</label>
+        {{ repayment_form.notes }}
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;border-top:1px solid var(--border-light);padding-top:16px">
+        <button type="button" class="btn btn-outline" onclick="closeRepayModal()">Cancel</button>
+        <button type="submit" class="btn btn-success">💾 Save Payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Repay Modal logic
+  const modal = document.getElementById('repayModal');
+  const repayForm = document.getElementById('repayForm');
+  const repayPersonName = document.getElementById('repayPersonName');
+  const repayRemainingLimit = document.getElementById('repayRemainingLimit');
+  
+  function openRepayModal(pk, personName, remainingAmt) {
+    repayForm.action = `/lent/${pk}/repay/`;
+    repayPersonName.textContent = personName;
+    repayRemainingLimit.textContent = '₹' + parseFloat(remainingAmt).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    
+    // Set max limit validator
+    const amtInput = document.getElementById('id_amount_received');
+    if (amtInput) {
+      amtInput.value = parseFloat(remainingAmt).toFixed(2);
+      amtInput.max = parseFloat(remainingAmt);
+    }
+    
+    // Pre-populate date with today
+    const dateInput = document.getElementById('id_payment_date');
+    if (dateInput) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+    }
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+  
+  function closeRepayModal() {
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  // Close modal when clicking outside box
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      closeRepayModal();
+    }
+  });
+
+  // Load and Render Charts
+  document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/lent/charts/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        const gridColor = isDark ? '#30363d' : '#d0d7de';
+        const labelColor = isDark ? '#8b949e' : '#57606a';
+        
+        // 1. Doughnut chart (Receipt progress)
+        const doughnutCtx = document.getElementById('repayDoughnut');
+        if (doughnutCtx) {
+          const totalDataSum = data.summary.data.reduce((a, b) => a + b, 0);
+          if (totalDataSum > 0) {
+            new Chart(doughnutCtx, {
+              type: 'doughnut',
+              data: {
+                labels: data.summary.labels,
+                datasets: [{
+                  data: data.summary.data,
+                  backgroundColor: data.summary.colors,
+                  borderWidth: 2,
+                  borderColor: isDark ? '#1c2333' : '#ffffff',
+                  hoverOffset: 8,
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '68%',
+                plugins: {
+                  legend: { position: 'bottom', labels: { color: labelColor, font: { size: 12, family: "'Inter', sans-serif" } } },
+                  tooltip: {
+                    callbacks: {
+                      label: function(ctx) {
+                        return ' ₹' + parseFloat(ctx.raw).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          } else {
+            doughnutCtx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:13px;color:var(--text-muted)">No lending data recorded yet</div>';
+          }
+        }
+
+        // 2. Bar chart (Monthly Lent vs Repaid)
+        const barCtx = document.getElementById('repayMonthlyBar');
+        if (barCtx) {
+          new Chart(barCtx, {
+            type: 'bar',
+            data: {
+              labels: data.monthly.labels,
+              datasets: [
+                {
+                  label: 'Money Lent',
+                  data: data.monthly.lent,
+                  backgroundColor: 'rgba(88, 166, 255, 0.4)',
+                  borderColor: '#58a6ff',
+                  borderWidth: 1.5,
+                  borderRadius: 4,
+                },
+                {
+                  label: 'Repayments Received',
+                  data: data.monthly.repaid,
+                  backgroundColor: 'rgba(63, 185, 80, 0.4)',
+                  borderColor: '#3fb950',
+                  borderWidth: 1.5,
+                  borderRadius: 4,
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom', labels: { color: labelColor, font: { size: 11, family: "'Inter', sans-serif" } } }
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: { color: labelColor, font: { size: 11 } }
+                },
+                y: {
+                  grid: { color: gridColor },
+                  ticks: {
+                    color: labelColor,
+                    font: { size: 11 },
+                    callback: function(v) { return '₹' + v.toLocaleString('en-IN'); }
+                  }
+                }
+              }
+            }
+          });
+        }
+      })
+      .catch(function(err) { console.error('Lent charts error:', err); });
+  });
+</script>
+{% endblock %}

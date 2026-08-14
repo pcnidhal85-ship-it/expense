@@ -66,6 +66,18 @@
         <span>Budget</span>
       </a>
 
+      <a href="{% url 'borrowed_list' %}" class="nav-item {% if active_page == 'borrowed' %}active{% endif %}" id="nav-borrowed">
+        <span class="nav-icon">💰</span>
+        <span>Money Borrowed</span>
+      </a>
+
+      <a href="{% url 'lent_list' %}" class="nav-item {% if active_page == 'lent' %}active{% endif %}" id="nav-lent">
+        <span class="nav-icon">💸</span>
+        <span>Money Lent</span>
+      </a>
+
+
+
       <div class="nav-section-label">Analytics</div>
 
       <a href="{% url 'reports' %}" class="nav-item {% if active_page == 'reports' %}active{% endif %}" id="nav-reports">
